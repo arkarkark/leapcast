@@ -13,6 +13,10 @@ from leapcast.utils import render
 from leapcast.environment import Environment
 
 
+# you'll need brew install switchaudio-osx
+
+
+
 class Browser(object):
 
     def __init__(self, appurl):
@@ -23,25 +27,34 @@ class Browser(object):
             '--ignore-gpu-blacklist',
             '--incognito',
             '--no-first-run',
-            '--kiosk',
             '--disable-translate',
             '--user-agent=%s' % Environment.user_agent.encode('utf8')
         ]
         self.tmpdir = tempfile.mkdtemp(prefix='leapcast-')
         args.append('--user-data-dir=%s' % self.tmpdir)
+        args.append('--profile-directory=leapcast')
         if Environment.window_size:
             args.append('--window-size=%s' % Environment.window_size)
+        else:
+            args.append('--kiosk')
+        args.append('--window-position=2800,0') # TODO make this an option
         if not Environment.fullscreen:
             args.append('--app=%s' % appurl.encode('utf8'))
         else:
             args.append(appurl.encode('utf8'))
         logging.debug(args)
+        self.choose_audio("Living Room & Kitchen")
         self.pid = subprocess.Popen(args)
+
+    def choose_audio(self, source):
+        logging.debug("Choosing audio: %r", source)
+        subprocess.call(["open", "-a", "/Users/ark/bin/darwin15/SoundOutputChooser.app"], env={"OUTPUT": source})
 
     def destroy(self):
         self.pid.terminate()
         self.pid.wait()
         shutil.rmtree(self.tmpdir)
+        self.choose_audio("Internal Speakers")
 
     def is_running(self):
         return self.pid.poll() is None
@@ -153,7 +166,6 @@ class LEAPfactory(tornado.web.RequestHandler):
         status = self.get_status_dict()
         status['state'] = 'stopped'
         status['browser'] = None
-
         self.set_app_status(status)
 
     @tornado.web.asynchronous
